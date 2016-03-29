@@ -11,16 +11,6 @@ import (
 var Api = "https://dlpgi.dlp-payments.com/api/"
 
 
-func GlobalIdentity() bool{
-	resp, _ := grequests.Get("http://httpbin.org/get", nil)
-	var tes map[string]interface{}
-	fmt.Println(tes)
-	resp.JSON(&tes)
-	fmt.Println(tes["origin"])
-	return true
-}
-
-
 func AuthenticateUser(applicationKey string, email string, password string, expirationInMinutes int) map[string]interface{} {
 	json := map[string]interface{}{
 		"Email": email,
