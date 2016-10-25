@@ -19,5 +19,5 @@ go get github.com/julio-vaz/globalidentity
    - HasRoles(applicationKey string, userKey string, roles []string) map[string]interface{}
 
  - **Validação de aplicações**
-  - ValidateApplication(applicationKey string, clientApplicationKey string, clientSecretKey string, resources string) map[string]interface{}
+  - ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) map[string]interface{}
 
