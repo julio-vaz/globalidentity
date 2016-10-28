@@ -21,8 +21,8 @@ func (e GlobalIdentityError) Error() string {
 }
 
 type GlobalIdentityUser struct {
-	token string
-	key   string
+	Token string
+	Key   string
 }
 
 type GlobalIdentityManager interface {
@@ -76,8 +76,8 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 	}
 
 	var globalIdentityUser GlobalIdentityUser
-	globalIdentityUser.token = response.AuthenticationToken
-	globalIdentityUser.key = response.UserKey
+	globalIdentityUser.Token = response.AuthenticationToken
+	globalIdentityUser.Key = response.UserKey
 	return &globalIdentityUser, err
 }
 
