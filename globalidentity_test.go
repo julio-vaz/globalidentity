@@ -1,19 +1,20 @@
 package globalidentity
 
 import (
-	"testing"
-	"github.com/jarcoal/httpmock"
 	"encoding/json"
 	"net/http"
+	"testing"
+
+	"github.com/jarcoal/httpmock"
 )
 
 const (
-	globalApplicationUrl = "https://dlpgi.dlp-payments.com"
+	globalApplicationUrl   = "https://dlpgi.dlp-payments.com"
 	validateApplicationUrl = "https://dlpgi.dlp-payments.com/api/authorization/validateapplication"
-	authenticateUserUrl = "https://dlpgi.dlp-payments.com/api/authorization/authenticate"
-	isUserInRolesUrl = "https://dlpgi.dlp-payments.com/api/authorization/isuserinroles"
-	validateTokenUrl = "https://dlpgi.dlp-payments.com/api/authorization/validatetokenresponse"
-	renewTokenUrl = "https://dlpgi.dlp-payments.com/api/authorization/renewtoken"
+	authenticateUserUrl    = "https://dlpgi.dlp-payments.com/api/authorization/authenticate"
+	isUserInRolesUrl       = "https://dlpgi.dlp-payments.com/api/authorization/isuserinroles"
+	validateTokenUrl       = "https://dlpgi.dlp-payments.com/api/authorization/validatetokenresponse"
+	renewTokenUrl          = "https://dlpgi.dlp-payments.com/api/authorization/renewtoken"
 )
 
 func TestGlobalIdentityManager_ValidateApplication(t *testing.T) {
@@ -23,32 +24,32 @@ func TestGlobalIdentityManager_ValidateApplication(t *testing.T) {
 	httpmock.RegisterResponder("POST", validateApplicationUrl, httpmock.NewStringResponder(http.StatusInternalServerError, ""))
 
 	gim := New("test", globalApplicationUrl)
-	_, err := gim.ValidateApplication("", "", "")
+	_, err := gim.ValidateApplication("", "", "", "")
 	if err == nil {
 		t.FailNow()
 	}
 
 	okResponse, _ := json.Marshal(&validateApplicationResponse{
-		Success: true,
+		Success:         true,
 		OperationReport: make([]string, 0),
 	})
 
 	httpmock.RegisterResponder("POST", validateApplicationUrl, httpmock.NewStringResponder(http.StatusOK, string(okResponse)))
 
 	gim = New("test", globalApplicationUrl)
-	ok, err := gim.ValidateApplication("", "", "")
+	ok, err := gim.ValidateApplication("", "", "", "")
 	if !ok || err != nil {
 		t.FailNow()
 	}
 
 	notOkResponse, _ := json.Marshal(&validateApplicationResponse{
-		Success: false,
+		Success:         false,
 		OperationReport: []string{"error"},
 	})
 
 	httpmock.RegisterResponder("POST", validateApplicationUrl, httpmock.NewStringResponder(http.StatusOK, string(notOkResponse)))
 
-	ok, err = gim.ValidateApplication("", "", "")
+	ok, err = gim.ValidateApplication("", "", "", "")
 	if ok {
 		t.FailNow()
 	}
@@ -59,7 +60,7 @@ func TestGlobalIdentityManager_ValidateApplication(t *testing.T) {
 
 	httpmock.RegisterResponder("POST", validateApplicationUrl, httpmock.NewStringResponder(http.StatusOK, "{\"saa}"))
 
-	_, err = gim.ValidateApplication("", "", "")
+	_, err = gim.ValidateApplication("", "", "", "")
 
 	if err == nil {
 		t.FailNow()
@@ -79,11 +80,11 @@ func TestGlobalIdentityManager_AuthenticateUser(t *testing.T) {
 	}
 
 	okResponse, _ := json.Marshal(&authenticateUserResponse{
-		Success: true,
-		AuthenticationToken: "banana",
+		Success:                  true,
+		AuthenticationToken:      "banana",
 		TokenExpirationInMinutes: 1,
-		UserKey: "user",
-		Name: "user",
+		UserKey:                  "user",
+		Name:                     "user",
 	})
 
 	httpmock.RegisterResponder("POST", authenticateUserUrl, httpmock.NewStringResponder(http.StatusOK, string(okResponse)))
@@ -95,11 +96,11 @@ func TestGlobalIdentityManager_AuthenticateUser(t *testing.T) {
 	}
 
 	notOkResponse, _ := json.Marshal(&authenticateUserResponse{
-		Success: false,
-		AuthenticationToken: "banana",
+		Success:                  false,
+		AuthenticationToken:      "banana",
 		TokenExpirationInMinutes: 1,
-		UserKey: "user",
-		Name: "user",
+		UserKey:                  "user",
+		Name:                     "user",
 	})
 
 	httpmock.RegisterResponder("POST", authenticateUserUrl, httpmock.NewStringResponder(http.StatusOK, string(notOkResponse)))
@@ -131,7 +132,7 @@ func TestGlobalIdentityManager_IsUserInRoles(t *testing.T) {
 	}
 
 	okResponse, _ := json.Marshal(&isUserInRoleResponse{
-		Success: true,
+		Success:         true,
 		OperationReport: make([]string, 0),
 	})
 
@@ -144,7 +145,7 @@ func TestGlobalIdentityManager_IsUserInRoles(t *testing.T) {
 	}
 
 	notOkResponse, _ := json.Marshal(&isUserInRoleResponse{
-		Success: false,
+		Success:         false,
 		OperationReport: []string{"error"},
 	})
 
@@ -181,7 +182,7 @@ func TestGlobalIdentityManager_ValidateToken(t *testing.T) {
 	}
 
 	okResponse, _ := json.Marshal(&validateTokenResponse{
-		Success: true,
+		Success:         true,
 		OperationReport: make([]string, 0),
 	})
 
@@ -194,7 +195,7 @@ func TestGlobalIdentityManager_ValidateToken(t *testing.T) {
 	}
 
 	notOkResponse, _ := json.Marshal(&validateTokenResponse{
-		Success: false,
+		Success:         false,
 		OperationReport: []string{"error"},
 	})
 
@@ -231,7 +232,7 @@ func TestGlobalIdentityManager_RenewToken(t *testing.T) {
 	}
 
 	okResponse, _ := json.Marshal(&validateTokenResponse{
-		Success: true,
+		Success:         true,
 		OperationReport: make([]string, 0),
 	})
 
@@ -244,8 +245,8 @@ func TestGlobalIdentityManager_RenewToken(t *testing.T) {
 	}
 
 	notOkResponse, _ := json.Marshal(&renewTokenResponse{
-		Success: false,
-		NewToken: "token",
+		Success:         false,
+		NewToken:        "token",
 		OperationReport: []string{"error"},
 	})
 
@@ -277,4 +278,3 @@ func TestGlobalIdentityError_Error(t *testing.T) {
 		t.FailNow()
 	}
 }
-

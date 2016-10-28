@@ -1,9 +1,9 @@
 package globalidentity
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
-	"bytes"
 )
 
 func toJson(s interface{}) (io.Reader, error) {
@@ -16,4 +16,3 @@ func fromJson(s interface{}, r io.Reader) error {
 	decoder.UseNumber()
 	return decoder.Decode(s)
 }
-

@@ -7,11 +7,10 @@ type authenticateUserResponse struct {
 	Name                     string `json:"Name"`
 	Success                  bool   `json:"Success"`
 }
-
 type validateTokenResponse struct {
-	ExpirationInMinutes int        `json:"ExpirationInMinutes"`
-	Success             bool       `json:"Success"`
-	OperationReport     []string   `json:"OperationReport"`
+	ExpirationInMinutes int      `json:"ExpirationInMinutes"`
+	Success             bool     `json:"Success"`
+	OperationReport     []string `json:"OperationReport"`
 }
 
 type renewTokenResponse struct {
@@ -29,7 +28,7 @@ type renewToken struct {
 }
 
 type validateApplicationResponse struct {
-	Success         bool             `json:"Success"`
+	Success         bool     `json:"Success"`
 	OperationReport []string `json:"OperationReport"`
 }
 
