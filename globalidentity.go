@@ -1,74 +1,201 @@
-package Globalidentity
+package globalidentity
 
 import (
 	"fmt"
-	"github.com/levigross/grequests"
+	"net/http"
 )
 
-var Api = "https://dlpgi.dlp-payments.com/api/"
+const (
+	contentJson               = "application/json"
+	validateApplicationSuffix = "/api/authorization/validateapplication"
+	authenticateUserSuffix    = "/api/authorization/authenticate"
+	isUserInRolesSuffix       = "/api/authorization/isuserinroles"
+	validateTokenSuffix       = "/api/authorization/validatetokenresponse"
+	renewTokenSuffix          = "/api/authorization/renewtoken"
+)
 
-func AuthenticateUser(applicationKey string, email string, password string, expirationInMinutes int) map[string]interface{} {
-	json := map[string]interface{}{
-		"Email":                    email,
-		"Password":                 password,
-		"ApplicationKey":           applicationKey,
-		"TokenExpirationInMinutes": expirationInMinutes,
-	}
-	resp, _ := grequests.Post(Api+"Authorization/authenticate", &grequests.RequestOptions{
-		JSON: json,
-	})
-	var response map[string]interface{}
-	resp.JSON(&response)
+type GlobalIdentityError []string
 
-	return response
+func (e GlobalIdentityError) Error() string {
+	return fmt.Sprintf("%#v", []string(e))
 }
 
-func ValidateToken(applicationKey string, token string) map[string]interface{} {
-	json := map[string]interface{}{
-		"ApplicationKey": applicationKey,
-		"Token":          token,
-	}
-	resp, _ := grequests.Post(Api+"Authorization/ValidateToken", &grequests.RequestOptions{
-		JSON: json,
-	})
-	var response map[string]interface{}
-	resp.JSON(&response)
-
-	return response
+type GlobalIdentityManager interface {
+	AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, error)
+	ValidateToken(token string) (bool, error)
+	IsUserInRoles(userKey string, roles ...string) (bool, error)
+	RenewToken(token string) (string, error)
+	ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error)
 }
 
-func HasRoles(applicationKey string, userKey string, roles []string) map[string]interface{} {
-	json := map[string]interface{}{
-		"ApplicationKey": applicationKey,
-		"UserKey":        userKey,
-		"RoleCollection": roles,
-	}
-
-	resp, _ := grequests.Post(Api+"Authorization/IsUserInRole", &grequests.RequestOptions{
-		JSON: json,
-	})
-	var response map[string]interface{}
-	resp.JSON(&response)
-
-	return response
+type globalIdentityManager struct {
+	applicationKey     string
+	globalIdentityHost string
 }
 
-func ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) map[string]interface{} {
+func New(applicationKey string, globalIdentityHost string) GlobalIdentityManager {
+	return &globalIdentityManager{applicationKey,
+		globalIdentityHost,
+	}
+}
 
-	json := map[string]interface{}{
-		"ApplicationKey":       applicationKey,
-		"ClientApplicationKey": clientApplicationKey,
-		"RawData":              rawData,
-		"EncryptedData":        encryptedData,
+func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, error) {
+	expirationInMinutes = append(expirationInMinutes, 15)
+	request := &authenticateUserRequest{
+		ApplicationKey:           gim.applicationKey,
+		TokenExpirationInMinutes: expirationInMinutes[0],
+		Email:    email,
+		Password: password,
+	}
+	json, err := toJson(request)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.Post(gim.globalIdentityHost+authenticateUserSuffix, contentJson, json)
+	if err != nil {
+		return "", err
 	}
 
-	fmt.Println(json)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+	}
 
-	resp, _ := grequests.Post(Api+"Authorization/ValidateApplication", &grequests.RequestOptions{
-		JSON: json,
-	})
-	var response map[string]interface{}
-	resp.JSON(&response)
+	var response authenticateUserResponse
 
-	return response
+	err = fromJson(&response, resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if !response.Success {
+		err = GlobalIdentityError([]string{"Invalid email or password"})
+	}
+	return response.AuthenticationToken, err
+}
+
+func (gim *globalIdentityManager) ValidateToken(token string) (bool, error) {
+	request := &validateTokenRequest{
+		ApplicationKey: gim.applicationKey,
+		Token:          token,
+	}
+	json, err := toJson(request)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.Post(gim.globalIdentityHost+validateTokenSuffix, contentJson, json)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+	}
+
+	var response validateTokenResponse
+
+	err = fromJson(&response, resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if !response.Success {
+		err = GlobalIdentityError(response.OperationReport)
+	}
+	return response.Success, err
+}
+
+func (gim *globalIdentityManager) IsUserInRoles(userKey string, roles ...string) (bool, error) {
+	request := &isUserInHolesRequest{
+		ApplicationKey: gim.applicationKey,
+		UserKey:        userKey,
+		RoleCollection: roles,
+	}
+	json, err := toJson(request)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.Post(gim.globalIdentityHost+isUserInRolesSuffix, contentJson, json)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+	}
+
+	var response isUserInRoleResponse
+
+	err = fromJson(&response, resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if !response.Success {
+		err = GlobalIdentityError(response.OperationReport)
+	}
+	return response.Success, err
+}
+
+func (gim *globalIdentityManager) RenewToken(token string) (string, error) {
+	request := &renewTokenRequest{
+		ApplicationKey: gim.applicationKey,
+		Token:          token,
+	}
+	json, err := toJson(request)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.Post(gim.globalIdentityHost+renewTokenSuffix, contentJson, json)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+	}
+
+	var response renewTokenResponse
+
+	err = fromJson(&response, resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if !response.Success {
+		err = GlobalIdentityError(response.OperationReport)
+	}
+	return response.NewToken, err
+}
+
+func (gim *globalIdentityManager) ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error) {
+
+	request := &validateApplicationRequest{
+		ApplicationKey:       gim.applicationKey,
+		ClientApplicationKey: clientApplicationKey,
+		RawData:              rawData,
+		EncryptedData:        encryptedData,
+	}
+	json, err := toJson(request)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.Post(gim.globalIdentityHost+validateApplicationSuffix, contentJson, json)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+	}
+
+	var response validateApplicationResponse
+
+	err = fromJson(&response, resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if !response.Success {
+		err = GlobalIdentityError(response.OperationReport)
+	}
+	return response.Success, err
 }
