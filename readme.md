@@ -10,14 +10,17 @@ go get github.com/julio-vaz/globalidentity
 ## Funcionalidades
 
  - **Autenticação de usuários**
-   - AuthenticateUser(applicationKey string, email string, password string, expirationInMinutes int) map[string]interface{}
+   - AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, error)
 
  - **Validação de tokens**
-   - ValidateToken(applicationKey string, token string) map[string]interface{}
+   - ValidateToken(token string) (bool, error)
 
  - **Validação de papeis de usuários**
-   - HasRoles(applicationKey string, userKey string, roles []string) map[string]interface{}
+   - IsUserInRoles(userKey string, roles ...string) (bool, error)
 
  - **Validação de aplicações**
-  - ValidateApplication(applicationKey string, clientApplicationKey string, clientSecretKey string, resources string) map[string]interface{}
+  - ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error)
+  
+ - **Renovação de tokens**
+  - RenewToken(token string) (string, error)
 
