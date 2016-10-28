@@ -19,12 +19,8 @@ go get github.com/julio-vaz/globalidentity
    - IsUserInRoles(userKey string, roles ...string) (bool, error)
 
  - **Validação de aplicações**
-<<<<<<< HEAD
-  - ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) map[string]interface{}
-=======
   - ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error)
   
  - **Renovação de tokens**
   - RenewToken(token string) (string, error)
->>>>>>> d8923fbbdcabce00b21fe8ff3a911c2f7d389072
 
