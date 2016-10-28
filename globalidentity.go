@@ -25,7 +25,7 @@ type GlobalIdentityManager interface {
 	ValidateToken(token string) (bool, error)
 	IsUserInRoles(userKey string, roles ...string) (bool, error)
 	RenewToken(token string) (string, error)
-	ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error)
+	ValidateApplication(clientApplicationKey string, rawData string, encryptedData string) (bool, error)
 }
 
 type globalIdentityManager struct {
@@ -166,7 +166,7 @@ func (gim *globalIdentityManager) RenewToken(token string) (string, error) {
 	return response.NewToken, err
 }
 
-func (gim *globalIdentityManager) ValidateApplication(applicationKey string, clientApplicationKey string, rawData string, encryptedData string) (bool, error) {
+func (gim *globalIdentityManager) ValidateApplication(clientApplicationKey string, rawData string, encryptedData string) (bool, error) {
 
 	request := &validateApplicationRequest{
 		ApplicationKey:       gim.applicationKey,
