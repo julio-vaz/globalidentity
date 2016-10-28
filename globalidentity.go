@@ -39,7 +39,7 @@ func New(applicationKey string, globalIdentityHost string) GlobalIdentityManager
 	}
 }
 
-func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, error) {
+func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, string, error) {
 	expirationInMinutes = append(expirationInMinutes, 15)
 	request := &authenticateUserRequest{
 		ApplicationKey:           gim.applicationKey,
@@ -69,7 +69,7 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 	if !response.Success {
 		err = GlobalIdentityError([]string{"Invalid email or password"})
 	}
-	return response.AuthenticationToken, err
+	return response.AuthenticationToken, response.UserKey, err
 }
 
 func (gim *globalIdentityManager) ValidateToken(token string) (bool, error) {
