@@ -20,8 +20,13 @@ func (e GlobalIdentityError) Error() string {
 	return fmt.Sprintf("%#v", []string(e))
 }
 
+type GlobalIdentityUser struct {
+	token string
+	key   string
+}
+
 type GlobalIdentityManager interface {
-	AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, error)
+	AuthenticateUser(email string, password string, expirationInMinutes ...int) (*GlobalIdentityUser, error)
 	ValidateToken(token string) (bool, error)
 	IsUserInRoles(userKey string, roles ...string) (bool, error)
 	RenewToken(token string) (string, error)
@@ -39,7 +44,7 @@ func New(applicationKey string, globalIdentityHost string) GlobalIdentityManager
 	}
 }
 
-func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (string, string, error) {
+func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (*GlobalIdentityUser, error) {
 	expirationInMinutes = append(expirationInMinutes, 15)
 	request := &authenticateUserRequest{
 		ApplicationKey:           gim.applicationKey,
@@ -49,27 +54,31 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 	}
 	json, err := toJson(request)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	resp, err := http.Post(gim.globalIdentityHost+authenticateUserSuffix, contentJson, json)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+		return nil, GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
 	}
 
 	var response authenticateUserResponse
 
 	err = fromJson(&response, resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !response.Success {
 		err = GlobalIdentityError([]string{"Invalid email or password"})
 	}
-	return response.AuthenticationToken, response.UserKey, err
+
+	var globalIdentityUser GlobalIdentityUser
+	globalIdentityUser.token = response.AuthenticationToken
+	globalIdentityUser.key = response.UserKey
+	return &globalIdentityUser, err
 }
 
 func (gim *globalIdentityManager) ValidateToken(token string) (bool, error) {
