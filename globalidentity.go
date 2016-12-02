@@ -61,10 +61,6 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 		return nil, err
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
-	}
-
 	var response authenticateUserResponse
 
 	err = fromJson(&response, resp.Body)
@@ -72,7 +68,11 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 		return nil, err
 	}
 	if !response.Success {
-		err = GlobalIdentityError(response.OperationReport)
+		var messages []string
+		for _, operationReport := range response.OperationReport {
+			messages = append(messages, operationReport.Message)
+		}
+		err = GlobalIdentityError(messages)
 	}
 
 	var globalIdentityUser GlobalIdentityUser
