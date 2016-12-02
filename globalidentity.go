@@ -72,7 +72,7 @@ func (gim *globalIdentityManager) AuthenticateUser(email string, password string
 		return nil, err
 	}
 	if !response.Success {
-		err = GlobalIdentityError([]string{"Invalid email or password"})
+		err = GlobalIdentityError(response.OperationReport)
 	}
 
 	var globalIdentityUser GlobalIdentityUser

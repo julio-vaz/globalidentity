@@ -101,12 +101,13 @@ func TestGlobalIdentityManager_AuthenticateUser(t *testing.T) {
 		TokenExpirationInMinutes: 1,
 		UserKey:                  "user",
 		Name:                     "user",
+		OperationReport:          []string{"error1", "error2"},
 	})
 
 	httpmock.RegisterResponder("POST", authenticateUserUrl, httpmock.NewStringResponder(http.StatusOK, string(notOkResponse)))
 
 	_, err = gim.AuthenticateUser("", "")
-	if err == nil {
+	if err.Error() != `[]string{"error1", "error2"}` {
 		t.FailNow()
 	}
 

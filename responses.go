@@ -1,11 +1,12 @@
 package globalidentity
 
 type authenticateUserResponse struct {
-	AuthenticationToken      string `json:"AuthenticationToken"`
-	TokenExpirationInMinutes int    `json:"TokenExpirationInMinutes"`
-	UserKey                  string `json:"UserKey"`
-	Name                     string `json:"Name"`
-	Success                  bool   `json:"Success"`
+	AuthenticationToken      string   `json:"AuthenticationToken"`
+	TokenExpirationInMinutes int      `json:"TokenExpirationInMinutes"`
+	UserKey                  string   `json:"UserKey"`
+	Name                     string   `json:"Name"`
+	Success                  bool     `json:"Success"`
+	OperationReport          []string `json:"OperationReport"`
 }
 type validateTokenResponse struct {
 	ExpirationInMinutes int      `json:"ExpirationInMinutes"`
