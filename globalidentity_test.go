@@ -95,18 +95,23 @@ func TestGlobalIdentityManager_AuthenticateUser(t *testing.T) {
 		t.FailNow()
 	}
 
+	oprep := []loginOperationReport{
+		{Message: "error1", Field: "login"},
+		{Message: "error2", Field: "login"},
+	}
 	notOkResponse, _ := json.Marshal(&authenticateUserResponse{
 		Success:                  false,
 		AuthenticationToken:      "banana",
 		TokenExpirationInMinutes: 1,
 		UserKey:                  "user",
 		Name:                     "user",
+		OperationReport:          oprep,
 	})
 
 	httpmock.RegisterResponder("POST", authenticateUserUrl, httpmock.NewStringResponder(http.StatusOK, string(notOkResponse)))
 
 	_, err = gim.AuthenticateUser("", "")
-	if err == nil {
+	if err.Error() != `[]string{"error1", "error2"}` {
 		t.FailNow()
 	}
 
