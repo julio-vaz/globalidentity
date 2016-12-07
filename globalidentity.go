@@ -1,20 +1,17 @@
 package globalidentity
 
 import (
-	"crypto/hmac"
-	"crypto/sha512"
-	"encoding/hex"
-	"net/http"
 	"fmt"
+	"net/http"
 )
 
 const (
-	contentJson = "application/json"
+	contentJson               = "application/json"
 	validateApplicationSuffix = "/api/authorization/validateapplication"
-	authenticateUserSuffix = "/api/authorization/authenticate"
-	isUserInRolesSuffix = "/api/authorization/isuserinroles"
-	validateTokenSuffix = "/api/authorization/validatetokenresponse"
-	renewTokenSuffix = "/api/authorization/renewtoken"
+	authenticateUserSuffix    = "/api/authorization/authenticate"
+	isUserInRolesSuffix       = "/api/authorization/isuserinroles"
+	validateTokenSuffix       = "/api/authorization/validatetokenresponse"
+	renewTokenSuffix          = "/api/authorization/renewtoken"
 )
 
 type GlobalIdentityError []string
@@ -23,13 +20,17 @@ func (e GlobalIdentityError) Error() string {
 	return fmt.Sprintf("%#v", []string(e))
 }
 
+type GlobalIdentityUser struct {
+	Token string
+	Key   string
+}
 
 type GlobalIdentityManager interface {
-	AuthenticateUser(email string, password string, expirationInMinutes ... int) (string, error)
+	AuthenticateUser(email string, password string, expirationInMinutes ...int) (*GlobalIdentityUser, error)
 	ValidateToken(token string) (bool, error)
-	IsUserInRoles(userKey string, roles ... string) (bool, error)
+	IsUserInRoles(userKey string, roles ...string) (bool, error)
 	RenewToken(token string) (string, error)
-	ValidateApplication(clientApplicationKey string, clientSecretKey string, resources string) (bool, error)
+	ValidateApplication(clientApplicationKey string, rawData string, encryptedData string) (bool, error)
 }
 
 type globalIdentityManager struct {
@@ -43,51 +44,54 @@ func New(applicationKey string, globalIdentityHost string) GlobalIdentityManager
 	}
 }
 
-func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ... int) (string, error) {
+func (gim *globalIdentityManager) AuthenticateUser(email string, password string, expirationInMinutes ...int) (*GlobalIdentityUser, error) {
 	expirationInMinutes = append(expirationInMinutes, 15)
 	request := &authenticateUserRequest{
-		ApplicationKey: gim.applicationKey,
+		ApplicationKey:           gim.applicationKey,
 		TokenExpirationInMinutes: expirationInMinutes[0],
-		Email: email,
+		Email:    email,
 		Password: password,
 	}
 	json, err := toJson(request)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	resp, err := http.Post(gim.globalIdentityHost + authenticateUserSuffix, contentJson, json)
+	resp, err := http.Post(gim.globalIdentityHost+authenticateUserSuffix, contentJson, json)
 	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", GlobalIdentityError([]string{fmt.Sprintf("%v", resp.StatusCode)})
+		return nil, err
 	}
 
 	var response authenticateUserResponse
 
 	err = fromJson(&response, resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !response.Success {
-		err = GlobalIdentityError([]string{"Invalid email or password"})
+		var messages []string
+		for _, operationReport := range response.OperationReport {
+			messages = append(messages, operationReport.Message)
+		}
+		err = GlobalIdentityError(messages)
 	}
-	return response.AuthenticationToken, err
+
+	var globalIdentityUser GlobalIdentityUser
+	globalIdentityUser.Token = response.AuthenticationToken
+	globalIdentityUser.Key = response.UserKey
+	return &globalIdentityUser, err
 }
 
 func (gim *globalIdentityManager) ValidateToken(token string) (bool, error) {
 	request := &validateTokenRequest{
-		ApplicationKey:gim.applicationKey,
-		Token: token,
+		ApplicationKey: gim.applicationKey,
+		Token:          token,
 	}
 	json, err := toJson(request)
 	if err != nil {
 		return false, err
 	}
 
-	resp, err := http.Post(gim.globalIdentityHost + validateTokenSuffix, contentJson, json)
+	resp, err := http.Post(gim.globalIdentityHost+validateTokenSuffix, contentJson, json)
 	if err != nil {
 		return false, err
 	}
@@ -108,10 +112,10 @@ func (gim *globalIdentityManager) ValidateToken(token string) (bool, error) {
 	return response.Success, err
 }
 
-func (gim *globalIdentityManager) IsUserInRoles(userKey string, roles ... string) (bool, error) {
+func (gim *globalIdentityManager) IsUserInRoles(userKey string, roles ...string) (bool, error) {
 	request := &isUserInHolesRequest{
-		ApplicationKey:gim.applicationKey,
-		UserKey: userKey,
+		ApplicationKey: gim.applicationKey,
+		UserKey:        userKey,
 		RoleCollection: roles,
 	}
 	json, err := toJson(request)
@@ -119,7 +123,7 @@ func (gim *globalIdentityManager) IsUserInRoles(userKey string, roles ... string
 		return false, err
 	}
 
-	resp, err := http.Post(gim.globalIdentityHost + isUserInRolesSuffix, contentJson, json)
+	resp, err := http.Post(gim.globalIdentityHost+isUserInRolesSuffix, contentJson, json)
 	if err != nil {
 		return false, err
 	}
@@ -142,15 +146,15 @@ func (gim *globalIdentityManager) IsUserInRoles(userKey string, roles ... string
 
 func (gim *globalIdentityManager) RenewToken(token string) (string, error) {
 	request := &renewTokenRequest{
-		ApplicationKey:gim.applicationKey,
-		Token: token,
+		ApplicationKey: gim.applicationKey,
+		Token:          token,
 	}
 	json, err := toJson(request)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := http.Post(gim.globalIdentityHost + renewTokenSuffix, contentJson, json)
+	resp, err := http.Post(gim.globalIdentityHost+renewTokenSuffix, contentJson, json)
 	if err != nil {
 		return "", err
 	}
@@ -171,26 +175,20 @@ func (gim *globalIdentityManager) RenewToken(token string) (string, error) {
 	return response.NewToken, err
 }
 
-func (gim *globalIdentityManager) ValidateApplication(clientApplicationKey string, clientSecretKey string, resources string) (bool, error) {
-	hmac512 := hmac.New(sha512.New, []byte(clientSecretKey))
-	_, err := hmac512.Write([]byte(resources))
-	if err != nil {
-		return false, err
-	}
-	encryptedSecretKey := hex.EncodeToString(hmac512.Sum(nil))
-	request := &validateApplicationRequest{
-		ApplicationKey:gim.applicationKey,
-		ClientApplicationKey: clientApplicationKey,
-		RawData: resources,
-		EncryptedData: encryptedSecretKey,
+func (gim *globalIdentityManager) ValidateApplication(clientApplicationKey string, rawData string, encryptedData string) (bool, error) {
 
+	request := &validateApplicationRequest{
+		ApplicationKey:       gim.applicationKey,
+		ClientApplicationKey: clientApplicationKey,
+		RawData:              rawData,
+		EncryptedData:        encryptedData,
 	}
 	json, err := toJson(request)
 	if err != nil {
 		return false, err
 	}
 
-	resp, err := http.Post(gim.globalIdentityHost + validateApplicationSuffix, contentJson, json)
+	resp, err := http.Post(gim.globalIdentityHost+validateApplicationSuffix, contentJson, json)
 	if err != nil {
 		return false, err
 	}
